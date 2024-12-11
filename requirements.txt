@@ -1,0 +1,7 @@
+onnxruntime
+numpy
+opencv-python-headless
+face-recognition
+pandas
+scikit-learn
+boto3
