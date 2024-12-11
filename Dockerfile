@@ -1,10 +1,20 @@
-FROM amazon/aws-lambda-python:3.11
+FROM public.ecr.aws/lambda/python:3.11
 
 # Install system dependencies using yum
-# Install libGL and other necessary build tools using yum
-RUN yum update -y && \
-    yum groupinstall -y "Development Tools" && \
-    yum install -y cmake libGL libGL-devel && \
+# Install system-level dependencies required for dlib and other Python packages
+RUN yum install -y \
+    gcc \
+    gcc-c++ \
+    cmake \
+    make \
+    libX11-devel \
+    libXext-devel \
+    libSM-devel \
+    libXrender-devel \
+    openblas-devel \
+    lapack-devel \
+    libboost-all-devel \
+    openssl-devel && \
     yum clean all
 
 # Set the working directory
