@@ -2,4 +2,4 @@ outs:
 - md5: af2b1bcb4056dc429ea1f5d244476451
   size: 58875705
   hash: md5
-  path: trained_model
+  path: trained_model.onnx
