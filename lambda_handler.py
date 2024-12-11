@@ -15,7 +15,6 @@ def lambda_handler(event, context):
             "image_path": "path/to/image.jpg", # optional
             "video_path": "path/to/video.mp4", # optional
             "camera_idx": 0, # optional
-            "image_base64": "base64_encoded_image", # optional for direct image data
         }
     """
     try:

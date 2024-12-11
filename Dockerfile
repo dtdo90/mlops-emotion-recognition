@@ -1,8 +1,9 @@
-FROM public.ecr.aws/lambda/python:3.11
+FROM public.ecr.aws/lambda/python:3.12
 
-# Install system dependencies using yum
 # Install system-level dependencies required for dlib and other Python packages
-RUN yum install -y \
+# Install system dependencies using microdnf 
+RUN microdnf update -y && \
+    microdnf install -y \
     gcc \
     gcc-c++ \
     cmake \
@@ -13,12 +14,12 @@ RUN yum install -y \
     libXrender-devel \
     openblas-devel \
     lapack-devel \
-    libboost-all-devel \
+    boost-devel \
     openssl-devel && \
-    yum clean all
+    microdnf clean all
 
 # Set the working directory
-WORKDIR /app
+WORKDIR /var/task
 
 
 # configure AWS as remote storage
@@ -33,22 +34,21 @@ ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 
 # Copy the requirements and install dependencies
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY requirements.txt /var/task
+RUN pip install --no-cache-dir -r /var/task/requirements.txt
 
 # Install DVC with S3 support
 RUN pip install "dvc[s3]"   # since s3 is the remote storage
 
 # Copy the rest of the application files to /app
-COPY . /app
+COPY . /var/task
 
 # Initialize DVC and configure remote storage
-RUN dvc init --no-scm
+RUN dvc init --no-scm -f
 RUN dvc remote add -d model-store s3://models-dvc-remote/trained_models/
 
-
 # pull the trained model
-RUN dvc pull models/trained_model.dvc
+RUN dvc pull models/trained_model.onnx.dvc
 
 # Specify the handler
 #RUN python lambda_handler.py
