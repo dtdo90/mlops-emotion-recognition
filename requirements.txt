@@ -5,3 +5,4 @@ face-recognition
 pandas
 scikit-learn
 boto3
+requests

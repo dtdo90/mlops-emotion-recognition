@@ -1,85 +1,76 @@
 import json
-import os
 import cv2
-import base64
 import numpy as np
+import requests
+import boto3
+import uuid
 
 from inference_onnx import EmotionPredictor
 
 inference=EmotionPredictor("./models/trained_model.onnx")
 
+# initialize S3 client
+s3_client=boto3.client('s3')
+S3_BUCKET_NAME="images-data-test"
+
 def lambda_handler(event, context):
     """ AWS lambda handler for inference
-        Expected event structure:
         {
-            "image_path": "path/to/image.jpg", # optional
-            "video_path": "path/to/video.mp4", # optional
-            "camera_idx": 0, # optional
+            "image_url": "https://drive.google.com/uc?id=1GqISERXvrCKxtwJfMKzIKCVi93JAOeSs"
         }
+        Return: image_result_ulr
     """
     try:
         # get input from event
-        image_path=event.get('image_path')
-        video_path=event.get('video_path')
-        camera_idx=event.get('camera_idx')
-        
-        # image inference
-        if image_path:
-            if not os.path.exists(image_path):
-                return {
-                    'statusCode': 404,
-                    'body': json.dumps({'error': 'Image not found'})
-                }
-            # read and process image
-            image=cv2.imread(image_path)
-            image_result=inference.inference_image(image)
-            image_result_path=image_path[:-4]+"_out.png"
-            cv2.imwrite(image_result_path,image_result)
-            return {
-                'statusCode': 200,
-                'body': json.dumps({
-                    'image_result_path': image_result_path
-                })
-            }
-
-        # video inference
-        elif video_path:
-            if not os.path.exists(video_path):
-                return {
-                    'statusCode': 404,
-                    'body': json.dumps({'error': 'Video not found'})
-                }
-            # inference
-            inference.inference_video(video_path)
-            video_result_path=video_path[:-4]+"_out.mp4"
-            return {
-                'statusCode':200,
-                'video_result_path': video_result_path
-            }
-        
-        # webcam inference
-        elif camera_idx:
-            if not isinstance(camera_idx,int) or camera_idx<0:
-                return {
-                    'statusCode': 400,
-                    'body': json.dumps({'error': 'Invalid camera index'})
-                }
-            inference.inference_web(camera_idx)
-            return {
-                'statusCode': 200,
-                'body': json.dumps({
-                    'message': 'Webcam inference started'
-                })
-            }
-
-        else:
+        image_url=event.get("image_url")        
+        if not image_url:
             return {
                 'statusCode': 400,
-                'body': json.dumps({'error': 'No valid input provided'})
+                'body': json.dumps({'error': 'No image URL provided'})
             }
+        # download the image
+        response=requests.get(image_url)
+        if response.status_code!=200:
+            return {
+                'statusCode': 404,
+                'body': json.dumps({'error': 'Failed to fetch image from url'})
+            }
+        # decode image from url content
+        image_arr=np.frombuffer(response.content,np.uint8)
+        image=cv2.imdecode(image_arr,cv2.IMREAD_COLOR)
+        if image is None:
+            return {
+                'statusCode':400,
+                'body': json.dumps({'error': 'Invalid image data'})
+            }
+        # process the image
+        image_result=inference.inference_image(image)
+        # encode the result image to bytes
+        _, buffer=cv2.imencode('.png',image_result)
+        image_bytes=buffer.tobytes()
+
+        # generate a unique key for the processed image
+        image_key = f"processed_images/{uuid.uuid4()}.png"
+        # upload to s3
+        s3_client.put_object(
+            Bucket=S3_BUCKET_NAME,
+            Key=image_key,
+            Body=image_bytes,
+            ContentType='image/png',
+            ACL='public-read' # make the image publicly accessible
+        )
+
+        # generate public url for the image
+        image_result_url=f"https://{S3_BUCKET_NAME}.s3.amazonaws.com/{image_key}"
         
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'image_result_url': image_result_url
+            })
+        }
     except Exception as e:
         return {
-            'statusCode': 500,
+            'statusCode':500,
             'body': json.dumps({'error': str(e)})
         }
