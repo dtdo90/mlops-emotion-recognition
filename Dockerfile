@@ -18,6 +18,11 @@ RUN microdnf update -y && \
     openssl-devel && \
     microdnf clean all
 
+# Set environment variables to help with CPU detection
+ENV ORT_DISABLE_TELEMETRY=1 \
+    ONNXRUNTIME_DISABLE_CPU_FT_TEST=1 \
+    OPENBLAS_NUM_THREADS=1
+
 # Set the working directory
 WORKDIR /var/task
 
@@ -42,6 +47,12 @@ RUN pip install "dvc[s3]"   # since s3 is the remote storage
 
 # Copy the rest of the application files to /app
 COPY . /var/task
+
+# Set up permissions and model
+RUN chmod -R 755 . && \
+    dvc init --no-scm -f && \
+    dvc remote add -d model-store s3://models-dvc-remote/trained_models/ && \
+    dvc pull models/trained_model.onnx.dvc
 
 # Initialize DVC and configure remote storage
 RUN dvc init --no-scm -f

@@ -2,7 +2,6 @@ import cv2, torch
 import face_recognition
 import numpy as np
 from torchvision import transforms
-from model import vgg16
 from PIL import Image
 from tqdm import tqdm
 import argparse  # Import argparse for handling command-line arguments
@@ -10,7 +9,16 @@ import time
 
 from utils import timing
 import onnxruntime as ort
+import logging
 
+# Configure logging before ONNX Runtime initialization
+logging.basicConfig(level=logging.INFO)
+
+# Explicitly set up ONNX Runtime logging
+try:
+    ort.set_default_logger_severity(ort.LoggingLevel.WARNING)
+except Exception as e:
+    logging.error(f"ONNX Runtime logging setup error: {e}")
 
 class EmotionPredictor:
     def __init__(self,model_onnx_path):
@@ -25,7 +33,11 @@ class EmotionPredictor:
             6: ['Neutral', (160,160,160), (255,255,255)]
         }
         # Set up ONNX runtime session
-        self.ort_session = ort.InferenceSession(model_onnx_path)
+        print("Loading ONNX model!")
+        self.ort_session = ort.InferenceSession(
+            model_onnx_path, 
+            providers=['CPUExecutionProvider']
+        )
         print("ONNX model loaded successfully!")
         
         # set up transform

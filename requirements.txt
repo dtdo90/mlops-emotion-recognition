@@ -6,3 +6,5 @@ pandas
 scikit-learn
 boto3
 requests
+torch 
+torchvision
